@@ -17,15 +17,26 @@ import './App.css'
 
 const CASA_NAMES = ['casa', 'casablanca', 'الدار البيضاء', 'كازا']
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+const FIREBASE_STORAGE_BUCKET = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET
 const FALLBACK_PRODUCT_IMAGE = brandLogo
 
+function extractImageUrl(value) {
+  const text = String(value || '').trim()
+  const cloudinaryMatch = text.match(/https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i)
+  if (cloudinaryMatch?.[0]) return cloudinaryMatch[0]
+  const imageMatch = text.match(/https?:\/\/[^\s"'<>]+\.(?:jpe?g|png|webp|gif)(?:\?[^\s"'<>]*)?/i)
+  return imageMatch?.[0] || text
+}
+
 function normalizeImageUrl(value) {
-  const url = String(value || '').trim()
+  const url = extractImageUrl(value)
   if (!url) return ''
   if (url.startsWith('//')) return `https:${url}`
   if (/^res\.cloudinary\.com\//i.test(url)) return `https://${url}`
   if (/^products\//i.test(url)) {
-    return CLOUDINARY_CLOUD_NAME ? `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${url}` : ''
+    if (CLOUDINARY_CLOUD_NAME) return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${url}`
+    if (FIREBASE_STORAGE_BUCKET) return `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(url)}?alt=media`
+    return ''
   }
   if (!/^https?:\/\//i.test(url)) {
     if (/^(www\.|images\.|res\.)/i.test(url)) return `https://${url}`
@@ -40,6 +51,11 @@ function normalizeImageUrl(value) {
   const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/)
   if (driveMatch?.[1]) return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`
   return url
+}
+
+function isValidDirectImageUrl(value) {
+  const url = normalizeImageUrl(value)
+  return /^https:\/\/.+/i.test(url)
 }
 
 function imageFallback(event) {
@@ -117,7 +133,7 @@ function Logo() {
 export default function App() {
   const [route, setRoute] = useState('home')
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
-  const [products, setProducts] = useState(demoProducts)
+  const [products, setProducts] = useState(firebaseReady ? [] : demoProducts)
   const [orders, setOrders] = useState([])
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('cart') || '[]'))
   const [search, setSearch] = useState('')
@@ -151,9 +167,9 @@ export default function App() {
       query(collection(db, 'products'), orderBy('createdAt', 'desc')),
       (snap) => {
         const list = snap.docs.map((item) => ({ id: item.id, ...item.data() }))
-        setProducts(list.length ? uniqueById(list) : demoProducts)
+        setProducts(uniqueById(list))
       },
-      () => Swal.fire('تنبيه Firebase', 'تحقق من Firestore Rules ومن تفعيل قاعدة البيانات.', 'warning'),
+      () => Swal.fire('تنبيه', 'تعذر تحميل المنتجات. تحقق من إعدادات الموقع.', 'warning'),
     )
     return () => {
       unsubProducts()
@@ -165,7 +181,7 @@ export default function App() {
     const unsubOrders = onSnapshot(
       query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
       (snap) => setOrders(uniqueById(snap.docs.map((item) => ({ id: item.id, ...item.data() })))),
-      () => Swal.fire('تنبيه Firebase', 'تحقق من صلاحيات قراءة الطلبات في Firestore Rules.', 'warning'),
+      () => Swal.fire('تنبيه', 'تعذر تحميل الطلبات. تحقق من صلاحيات الإدارة.', 'warning'),
     )
     return () => unsubOrders()
   }, [admin])
@@ -464,14 +480,14 @@ function AdminLogin() {
   async function login(event) {
     event.preventDefault()
     if (!firebaseReady || !auth) {
-      Swal.fire('Firebase مطلوب', 'تأكد أن ملف .env فيه إعدادات Firebase.', 'info')
+      Swal.fire('إعدادات ناقصة', 'إعدادات الدخول غير مفعلة بعد.', 'info')
       return
     }
     try {
       await signInWithEmailAndPassword(auth, email, pass)
       Swal.fire({ icon: 'success', title: 'تم الدخول', timer: 900, showConfirmButton: false })
     } catch {
-      Swal.fire('تعذر الدخول', 'تحقق من الإيميل وكلمة المرور ومن تفعيل Email/Password في Firebase Authentication.', 'error')
+      Swal.fire('تعذر الدخول', 'تحقق من الإيميل وكلمة المرور أو من حساب الإدارة.', 'error')
     }
   }
   return (
@@ -479,7 +495,7 @@ function AdminLogin() {
       <form className="panel loginCard" onSubmit={login}>
         <Logo />
         <h1>دخول الإدارة</h1>
-        <p>استعمل حساب الإدارة المسجل في Firebase Authentication.</p>
+        <p>استعمل حساب الإدارة للدخول إلى لوحة التحكم.</p>
         <input type="email" placeholder="البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} />
         <label className="passwordField">
           <input type={showPass ? 'text' : 'password'} placeholder="كلمة المرور" value={pass} onChange={(e) => setPass(e.target.value)} />
@@ -502,7 +518,7 @@ function AdminPage({ products, orders, setAdmin, setProducts }) {
         <div>
           <span className="eyebrow"><Boxes size={18} /> لوحة الإدارة</span>
           <h1>إدارة المنتجات والطلبات</h1>
-          {!firebaseReady && <p className="notice">Firebase غير مربوط بعد. بعد وضع مفاتيح Firebase ستعمل الإضافة والحذف والطلبات مباشرة.</p>}
+          {!firebaseReady && <p className="notice">إعدادات الموقع غير مكتملة بعد. بعد تفعيلها ستعمل المنتجات والطلبات مباشرة.</p>}
         </div>
         <button className="ghost" onClick={async () => { if (auth) await signOut(auth); localStorage.removeItem('admin'); setAdmin(false) }}><X size={18} /> خروج</button>
       </div>
@@ -531,9 +547,10 @@ function ProductsAdmin({ products, setProducts }) {
 
   async function saveProduct(event) {
     event.preventDefault()
-    if (!firebaseReady) return Swal.fire('Firebase مطلوب', 'أضف مفاتيح Firebase أولا كي يتم حفظ المنتجات.', 'info')
+    if (!firebaseReady) return Swal.fire('إعدادات ناقصة', 'إعدادات الحفظ غير مفعلة بعد.', 'info')
     if (!auth?.currentUser) return Swal.fire('الدخول مطلوب', 'ادخل بحساب الإدارة أولا.', 'warning')
     if (!form.name || !form.description || !form.image || !form.price) return Swal.fire('معلومات ناقصة', 'الاسم، الوصف، رابط الصورة والسعر الجديد ضرورية.', 'warning')
+    if (!isValidDirectImageUrl(form.image)) return Swal.fire('رابط الصورة غير صحيح', 'استعمل رابط صورة مباشر من Cloudinary يبدأ بـ https://', 'warning')
     const payload = { name: form.name, description: form.description, image: normalizeImageUrl(form.image), price: Number(form.price), oldPrice: form.oldPrice ? Number(form.oldPrice) : '', stock: Number(form.stock || 0), updatedAt: serverTimestamp() }
     try {
       if (editingId) {
@@ -549,7 +566,7 @@ function ProductsAdmin({ products, setProducts }) {
         Swal.fire('تمت الإضافة', 'تمت إضافة المنتج بنجاح.', 'success')
       }
     } catch (error) {
-      Swal.fire('لم يتم الحفظ', error?.message || 'تحقق من Firestore Rules ومن حساب الإدارة.', 'error')
+      Swal.fire('لم يتم الحفظ', error?.message || 'تحقق من إعدادات الحفظ ومن حساب الإدارة.', 'error')
       return
     }
     setSearch('')
@@ -558,7 +575,7 @@ function ProductsAdmin({ products, setProducts }) {
   }
 
   async function removeProduct(id) {
-    if (!firebaseReady) return Swal.fire('Firebase مطلوب', 'لا يمكن الحذف قبل الربط مع Firebase.', 'info')
+    if (!firebaseReady) return Swal.fire('إعدادات ناقصة', 'إعدادات الحذف غير مفعلة بعد.', 'info')
     const result = await Swal.fire({ title: 'حذف المنتج؟', text: 'لا يمكن التراجع عن هذه العملية.', icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم، حذف', cancelButtonText: 'إلغاء' })
     if (result.isConfirmed) {
       await deleteDoc(doc(db, 'products', id))
@@ -573,7 +590,12 @@ function ProductsAdmin({ products, setProducts }) {
         <h2>{editingId ? 'تعديل منتج' : 'إضافة منتج'}</h2>
         <input placeholder="اسم المنتج" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <textarea placeholder="وصف المنتج" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        <input placeholder="رابط الصورة من Cloudinary" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} />
+        <input
+          placeholder="رابط الصورة من Cloudinary"
+          value={form.image}
+          onChange={(e) => setForm({ ...form, image: e.target.value })}
+          onBlur={(e) => setForm({ ...form, image: normalizeImageUrl(e.target.value) })}
+        />
         <div className="two">
           <input type="number" placeholder="السعر القديم اختياري" value={form.oldPrice} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} />
           <input type="number" placeholder="السعر الجديد" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
@@ -596,7 +618,7 @@ function OrdersAdmin({ orders }) {
   const filtered = orders.filter((order) => JSON.stringify(order).toLowerCase().includes(search.toLowerCase()))
 
   async function setStatus(order, status) {
-    if (!firebaseReady) return Swal.fire('Firebase مطلوب', 'لا يمكن تغيير حالة الطلب قبل الربط مع Firebase.', 'info')
+    if (!firebaseReady) return Swal.fire('إعدادات ناقصة', 'إعدادات الطلبات غير مفعلة بعد.', 'info')
     if (status === 'cancelled' && !order.stockRestored) {
       const batch = writeBatch(db)
       batch.update(doc(db, 'orders', order.id), { status, stockRestored: true, updatedAt: serverTimestamp() })

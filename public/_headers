@@ -1,0 +1,8 @@
+/assets/*.js
+  Content-Type: application/javascript; charset=utf-8
+
+/*.js
+  Content-Type: application/javascript; charset=utf-8
+
+/favicon.svg
+  Content-Type: image/svg+xml; charset=utf-8
