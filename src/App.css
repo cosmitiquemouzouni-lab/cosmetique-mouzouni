@@ -341,6 +341,19 @@ del { color: var(--muted); }
 
 .adminLogin { min-height: 75vh; display: grid; place-items: center; padding: 24px; }
 .loginCard { max-width: 430px; display: grid; gap: 12px; }
+.rememberLogin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+.rememberLogin input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+}
 .panel { border-radius: 8px; padding: 20px; }
 .adminHead { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
 .notice { padding: 10px 12px; border: 1px solid rgba(201, 151, 47, 0.28); background: rgba(201, 151, 47, 0.12); border-radius: 8px; }

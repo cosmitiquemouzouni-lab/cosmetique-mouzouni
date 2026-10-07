@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import Swal from 'sweetalert2'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
 import {
   addDoc, collection, deleteDoc, doc, increment, onSnapshot, orderBy,
   query, serverTimestamp, updateDoc, writeBatch,
@@ -473,9 +480,10 @@ function AboutPage() {
 }
 
 function AdminLogin() {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('adminEmail') || '')
   const [pass, setPass] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [remember, setRemember] = useState(() => localStorage.getItem('rememberAdmin') !== 'false')
 
   async function login(event) {
     event.preventDefault()
@@ -484,7 +492,15 @@ function AdminLogin() {
       return
     }
     try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence)
       await signInWithEmailAndPassword(auth, email, pass)
+      if (remember) {
+        localStorage.setItem('adminEmail', email)
+        localStorage.setItem('rememberAdmin', 'true')
+      } else {
+        localStorage.removeItem('adminEmail')
+        localStorage.setItem('rememberAdmin', 'false')
+      }
       Swal.fire({ icon: 'success', title: 'تم الدخول', timer: 900, showConfirmButton: false })
     } catch {
       Swal.fire('تعذر الدخول', 'تحقق من الإيميل وكلمة المرور أو من حساب الإدارة.', 'error')
@@ -502,6 +518,10 @@ function AdminLogin() {
           <button type="button" className="passwordToggle" onClick={() => setShowPass(!showPass)} aria-label={showPass ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
             {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
+        </label>
+        <label className="rememberLogin">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+          <span>تذكر دخولي في هذا الهاتف</span>
         </label>
         <button className="primary"><UserRound size={18} /> دخول</button>
       </form>
