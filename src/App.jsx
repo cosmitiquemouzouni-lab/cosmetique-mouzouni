@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore'
 import {
   BadgeCheck, Boxes, CalendarDays, CheckCircle2, Edit3, Eye, Heart,
-  EyeOff, Home, Menu, MessageCircle, Moon, Phone, Plus,
+  EyeOff, Home, Instagram, Menu, MessageCircle, Moon, Phone, Plus,
   Search, ShoppingBag, ShoppingCart, Sparkles, Star, Sun, Trash2, Truck,
   UserRound, X,
 } from 'lucide-react'
@@ -26,6 +26,47 @@ const CASA_NAMES = ['casa', 'casablanca', 'الدار البيضاء', 'كازا
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const FIREBASE_STORAGE_BUCKET = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET
 const FALLBACK_PRODUCT_IMAGE = brandLogo
+const STORE_PHONE_LOCAL = '0619960414'
+const STORE_WHATSAPP = '212619960414'
+const STORE_INSTAGRAM = 'https://www.instagram.com/cosmetique.mouzouni?stkn=MTNsdGI5ZWZydjczMg=='
+
+function whatsappLink(phone, message = '') {
+  const cleanPhone = String(phone || '').replace(/\D/g, '')
+  const normalizedPhone = cleanPhone.startsWith('0') ? `212${cleanPhone.slice(1)}` : cleanPhone
+  const text = message ? `?text=${encodeURIComponent(message)}` : ''
+  return `https://wa.me/${normalizedPhone}${text}`
+}
+
+function ownerOrderMessage(order) {
+  const items = (order.items || [])
+    .map((item) => `- ${item.name} x ${item.quantity} = ${formatPrice(Number(item.price) * Number(item.quantity))} درهم`)
+    .join('\n')
+  return [
+    'طلب جديد من موقع Cosmetique Mouzouni',
+    '',
+    `التاريخ: ${order.createdAtText || ''}`,
+    `الاسم: ${order.customer?.fullName || ''}`,
+    `الهاتف: ${order.customer?.phone || ''}`,
+    `المدينة: ${order.customer?.city || ''}`,
+    `العنوان: ${order.customer?.address || ''}`,
+    '',
+    'المنتجات:',
+    items,
+    '',
+    `ثمن المنتجات: ${formatPrice(order.subtotal)} درهم`,
+    `التوصيل: ${formatPrice(order.shipping)} درهم`,
+    `المجموع: ${formatPrice(order.total)} درهم`,
+  ].join('\n')
+}
+
+function customerOrderMessage(order) {
+  return [
+    `السلام عليكم ${order.customer?.fullName || ''}`,
+    'توصلنا بطلبك من Cosmetique Mouzouni.',
+    `المجموع: ${formatPrice(order.total)} درهم`,
+    'بغينا نأكدو معك الطلب والعنوان من فضلك.',
+  ].join('\n')
+}
 
 function extractImageUrl(value) {
   const text = String(value || '').trim()
@@ -255,7 +296,18 @@ export default function App() {
     }
 
     setCart([])
-    Swal.fire({ icon: 'success', title: 'تم إرسال الطلب بنجاح', text: 'سنتواصل معك لتأكيد الطلب.' })
+    const result = await Swal.fire({
+      icon: 'success',
+      title: 'تم تسجيل الطلب بنجاح',
+      text: 'اضغط على الزر لإرسال تفاصيل الطلب في واتساب.',
+      confirmButtonText: 'إرسال في واتساب',
+      showCancelButton: true,
+      cancelButtonText: 'إغلاق',
+    })
+    if (result.isConfirmed) {
+      window.open(whatsappLink(STORE_WHATSAPP, ownerOrderMessage(order)), '_blank', 'noopener,noreferrer')
+    }
+    return
   }
 
   return (
@@ -268,6 +320,8 @@ export default function App() {
           <button onClick={() => { setRoute('about'); setMenuOpen(false) }}><Sparkles size={18} /> من نحن</button>
         </nav>
         <div className="headerActions">
+          <a className="iconBtn contactIcon" target="_blank" rel="noreferrer" href={whatsappLink(STORE_WHATSAPP, 'السلام عليكم، بغيت نستفسر على منتجات Cosmetique Mouzouni.')} aria-label="واتساب"><MessageCircle /></a>
+          <a className="iconBtn contactIcon" target="_blank" rel="noreferrer" href={STORE_INSTAGRAM} aria-label="إنستغرام"><Instagram /></a>
           <button className="iconBtn" onClick={() => setDark(!dark)} aria-label="تغيير المظهر">{dark ? <Sun /> : <Moon />}</button>
           <button className="cartButton" onClick={() => setRoute('cart')}><ShoppingCart size={18} /><span>{cart.reduce((sum, item) => sum + item.quantity, 0)}</span></button>
           <button className="iconBtn menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="القائمة"><Menu /></button>
@@ -294,6 +348,8 @@ function HomePage({ products, search, setSearch, addToCart, openDetail }) {
           <p>منتجات عناية أصلية للشعر والبشرة، بأسعار واضحة وتوصيل سريع داخل المغرب.</p>
           <div className="heroActions">
             <a className="primary" href="#products"><ShoppingBag size={19} /> تسوق الآن</a>
+            <a className="ghost" target="_blank" rel="noreferrer" href={whatsappLink(STORE_WHATSAPP, 'السلام عليكم، بغيت نطلب من Cosmetique Mouzouni.')}><MessageCircle size={19} /> واتساب</a>
+            <a className="ghost" target="_blank" rel="noreferrer" href={STORE_INSTAGRAM}><Instagram size={19} /> إنستغرام</a>
           </div>
         </div>
         <div className="heroVisual" aria-hidden="true">
@@ -655,7 +711,7 @@ function OrdersAdmin({ orders }) {
       <label className="searchBox wide"><Search size={18} /><input placeholder="بحث في الطلبات بالاسم، الهاتف، المدينة أو الحالة..." value={search} onChange={(e) => setSearch(e.target.value)} /></label>
       <div className="ordersList">
         {!filtered.length && <div className="empty">لا توجد طلبات بعد.</div>}
-        {filtered.map((order) => <article className="orderCard" key={order.id}><div className="orderTop"><div><h3>{order.customer?.fullName}</h3><p><Phone size={15} /> {order.customer?.phone}</p><p><CalendarDays size={15} /> {order.createdAtText || 'تاريخ غير متوفر'}</p></div><span className={`status ${order.status}`}>{statusLabel(order.status)}</span></div><p><Truck size={15} /> {order.customer?.city} - {order.customer?.address}</p><div className="miniItems">{order.items?.map((item) => <span key={item.id}>{item.name} x {item.quantity}</span>)}</div><strong>المجموع: {formatPrice(order.total)} درهم</strong><div className="orderActions"><a className="ghost" target="_blank" href={`https://wa.me/${String(order.customer?.phone || '').replace(/\D/g, '')}`}><MessageCircle size={17} /> واتساب</a><a className="ghost" href={`tel:${order.customer?.phone}`}><Phone size={17} /> اتصال</a><select value={order.status || 'new'} onChange={(e) => setStatus(order, e.target.value)}><option value="new">جديد</option><option value="confirmed">مؤكد</option><option value="delivered">تم التسليم</option><option value="cancelled">ملغى</option></select></div></article>)}
+        {filtered.map((order) => <article className="orderCard" key={order.id}><div className="orderTop"><div><h3>{order.customer?.fullName}</h3><p><Phone size={15} /> {order.customer?.phone}</p><p><CalendarDays size={15} /> {order.createdAtText || 'تاريخ غير متوفر'}</p></div><span className={`status ${order.status}`}>{statusLabel(order.status)}</span></div><p><Truck size={15} /> {order.customer?.city} - {order.customer?.address}</p><div className="miniItems">{order.items?.map((item) => <span key={item.id}>{item.name} x {item.quantity}</span>)}</div><strong>المجموع: {formatPrice(order.total)} درهم</strong><div className="orderActions"><a className="ghost" target="_blank" rel="noreferrer" href={whatsappLink(order.customer?.phone, customerOrderMessage(order))}><MessageCircle size={17} /> واتساب</a><a className="ghost" href={`tel:${order.customer?.phone}`}><Phone size={17} /> اتصال</a><select value={order.status || 'new'} onChange={(e) => setStatus(order, e.target.value)}><option value="new">جديد</option><option value="confirmed">مؤكد</option><option value="delivered">تم التسليم</option><option value="cancelled">ملغى</option></select></div></article>)}
       </div>
     </section>
   )
@@ -668,6 +724,10 @@ function statusLabel(status) {
 function Footer({ openAdmin }) {
   return (
     <footer>
+      <div className="footerContact">
+        <a target="_blank" rel="noreferrer" href={whatsappLink(STORE_WHATSAPP, 'السلام عليكم، بغيت نستفسر على منتجات Cosmetique Mouzouni.')}><MessageCircle size={18} /> {STORE_PHONE_LOCAL}</a>
+        <a target="_blank" rel="noreferrer" href={STORE_INSTAGRAM}><Instagram size={18} /> cosmetique.mouzouni</a>
+      </div>
       <p>© {new Date().getFullYear()} Cosmetique <button className="adminWord" onClick={openAdmin}>Mouzouni</button>. جميع الحقوق محفوظة.</p>
     </footer>
   )

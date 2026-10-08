@@ -121,6 +121,7 @@ nav button:hover, .tabs button.active { color: var(--text); background: rgba(201
   font-weight: 800;
 }
 .menu { display: none; }
+.contactIcon { color: var(--gold); }
 
 .hero {
   min-height: 520px;
@@ -391,6 +392,25 @@ footer {
   padding: 26px clamp(16px, 5vw, 72px);
   text-align: center;
 }
+.footerContact {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.footerContact a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 800;
+}
 footer p { width: 100%; margin: 0; font-size: 0.95rem; }
 .adminWord {
   border: 0;
@@ -461,6 +481,8 @@ input, textarea, select { direction: rtl; text-align: right; }
   .siteHeader { padding: 12px 14px; }
   .logo { min-width: auto; }
   .logo strong, .logo small { display: none; }
+  .headerActions { gap: 6px; }
+  .contactIcon { display: none; }
   nav {
     display: none;
     position: absolute;
