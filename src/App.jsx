@@ -706,12 +706,27 @@ function OrdersAdmin({ orders }) {
     Swal.fire('تم التحديث', 'تم تغيير حالة الطلب بنجاح.', 'success')
   }
 
+  async function removeOrder(order) {
+    if (!firebaseReady) return Swal.fire('إعدادات ناقصة', 'إعدادات الطلبات غير مفعلة بعد.', 'info')
+    const result = await Swal.fire({
+      title: 'حذف الطلب؟',
+      text: 'إذا كنت تريد إرجاع المخزون، اجعل الطلب ملغى قبل الحذف.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'نعم، حذف',
+      cancelButtonText: 'إلغاء',
+    })
+    if (!result.isConfirmed) return
+    await deleteDoc(doc(db, 'orders', order.id))
+    Swal.fire('تم الحذف', 'تم حذف الطلب من لوحة الإدارة.', 'success')
+  }
+
   return (
     <section className="panel">
       <label className="searchBox wide"><Search size={18} /><input placeholder="بحث في الطلبات بالاسم، الهاتف، المدينة أو الحالة..." value={search} onChange={(e) => setSearch(e.target.value)} /></label>
       <div className="ordersList">
         {!filtered.length && <div className="empty">لا توجد طلبات بعد.</div>}
-        {filtered.map((order) => <article className="orderCard" key={order.id}><div className="orderTop"><div><h3>{order.customer?.fullName}</h3><p><Phone size={15} /> {order.customer?.phone}</p><p><CalendarDays size={15} /> {order.createdAtText || 'تاريخ غير متوفر'}</p></div><span className={`status ${order.status}`}>{statusLabel(order.status)}</span></div><p><Truck size={15} /> {order.customer?.city} - {order.customer?.address}</p><div className="miniItems">{order.items?.map((item) => <span key={item.id}>{item.name} x {item.quantity}</span>)}</div><strong>المجموع: {formatPrice(order.total)} درهم</strong><div className="orderActions"><a className="ghost" target="_blank" rel="noreferrer" href={whatsappLink(order.customer?.phone, customerOrderMessage(order))}><MessageCircle size={17} /> واتساب</a><a className="ghost" href={`tel:${order.customer?.phone}`}><Phone size={17} /> اتصال</a><select value={order.status || 'new'} onChange={(e) => setStatus(order, e.target.value)}><option value="new">جديد</option><option value="confirmed">مؤكد</option><option value="delivered">تم التسليم</option><option value="cancelled">ملغى</option></select></div></article>)}
+        {filtered.map((order) => <article className="orderCard" key={order.id}><div className="orderTop"><div><h3>{order.customer?.fullName}</h3><p><Phone size={15} /> {order.customer?.phone}</p><p><CalendarDays size={15} /> {order.createdAtText || 'تاريخ غير متوفر'}</p></div><span className={`status ${order.status}`}>{statusLabel(order.status)}</span></div><p><Truck size={15} /> {order.customer?.city} - {order.customer?.address}</p><div className="miniItems">{order.items?.map((item) => <span key={item.id}>{item.name} x {item.quantity}</span>)}</div><strong>المجموع: {formatPrice(order.total)} درهم</strong><div className="orderActions"><a className="ghost" target="_blank" rel="noreferrer" href={whatsappLink(order.customer?.phone, customerOrderMessage(order))}><MessageCircle size={17} /> واتساب</a><a className="ghost" href={`tel:${order.customer?.phone}`}><Phone size={17} /> اتصال</a><select value={order.status || 'new'} onChange={(e) => setStatus(order, e.target.value)}><option value="new">جديد</option><option value="confirmed">مؤكد</option><option value="delivered">تم التسليم</option><option value="cancelled">ملغى</option></select><button className="ghost danger" onClick={() => removeOrder(order)}><Trash2 size={17} /> حذف</button></div></article>)}
       </div>
     </section>
   )
