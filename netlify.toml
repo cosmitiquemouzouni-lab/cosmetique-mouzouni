@@ -3,6 +3,12 @@
   publish = "dist"
 
 [[redirects]]
+  from = "https://cosmetique-mouzouni.netlify.app/*"
+  to = "https://cosmetique-mouzouni.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

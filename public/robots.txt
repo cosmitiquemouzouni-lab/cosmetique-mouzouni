@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cosmetique-mouzouni.netlify.app/sitemap.xml
+Sitemap: https://cosmetique-mouzouni.com/sitemap.xml
